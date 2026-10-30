@@ -1,0 +1,11 @@
+code,name,lead_time_days,moq,unit_price,monthly_capacity,reliability_pct
+S01,Supplier 1,23,500,21.43,6575,82
+S02,Supplier 2,26,200,90.91,16038,93
+S03,Supplier 3,15,200,30.22,6532,91
+S04,Supplier 4,18,50,91.91,5592,79
+S05,Supplier 5,23,100,96.09,15833,94
+S06,Supplier 6,5,500,48.89,17337,91
+S07,Supplier 7,11,50,83.23,5753,96
+S08,Supplier 8,20,200,93.39,13146,78
+S09,Supplier 9,12,500,23.19,2106,98
+S10,Supplier 10,26,200,116.77,7854,91
