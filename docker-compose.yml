@@ -33,6 +33,20 @@ services:
     ports:
       - "8000:8000"
 
+  worker:
+    build: ./backend
+    command: celery -A app.forecasting.tasks worker --loglevel=info --concurrency=2
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-dfs}:${POSTGRES_PASSWORD:-dfs_local_dev}@db:5432/${POSTGRES_DB:-dfs}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      backend:
+        condition: service_started
+
   frontend:
     build: ./frontend
     depends_on:
