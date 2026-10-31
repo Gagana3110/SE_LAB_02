@@ -1,6 +1,8 @@
+from collections.abc import Iterator
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
@@ -10,6 +12,11 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
 class Base(DeclarativeBase):
     pass
+
+
+def get_db() -> Iterator[Session]:
+    with SessionLocal() as session:
+        yield session
 
 
 def database_is_up() -> bool:
