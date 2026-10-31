@@ -10,6 +10,7 @@ from app.db import Base, SessionLocal, database_is_up, engine
 from app.errors import register_error_handling
 from app.masterdata.router import router as masterdata_router
 from app.sales.router import router as sales_router
+from app.suppliers.router import router as suppliers_router
 
 
 @asynccontextmanager
@@ -25,6 +26,7 @@ register_error_handling(app)
 app.include_router(auth_router)
 app.include_router(masterdata_router)
 app.include_router(sales_router)
+app.include_router(suppliers_router)
 
 
 @app.get("/health")
