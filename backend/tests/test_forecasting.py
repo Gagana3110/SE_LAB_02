@@ -349,3 +349,17 @@ def test_forecast_endpoints_need_a_session(client):
     assert start(client, [1]).status_code == 401
     assert client.get("/api/forecasts/runs/1").status_code == 401
     assert client.get("/api/forecasts/runs/1/products/1").status_code == 401
+
+
+def test_recent_runs_are_listed_newest_first(client, planner, db):
+    product = add_product(db)
+    first = start(client, [product.id]).json()["runId"]
+    second = start(client, [product.id], horizon=3).json()["runId"]
+    runs = client.get("/api/forecasts/runs").json()
+    assert [r["runId"] for r in runs] == [second, first]
+    assert runs[0]["status"] == DONE and runs[0]["horizon"] == 3
+    assert runs[0]["granularity"] == "MONTH" and runs[0]["createdAt"]
+
+
+def test_listing_runs_needs_a_session(client):
+    assert client.get("/api/forecasts/runs").status_code == 401

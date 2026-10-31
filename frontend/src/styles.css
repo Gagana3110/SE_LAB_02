@@ -318,6 +318,21 @@ tbody tr:last-child td {
   background: var(--warn-bg);
 }
 
+.message.info {
+  color: var(--accent-dark);
+  background: #e8eff7;
+}
+
+.field.narrow {
+  max-width: 560px;
+  margin-bottom: 1rem;
+}
+
+.chart {
+  width: 100%;
+  min-height: 360px;
+}
+
 .stats {
   display: flex;
   flex-wrap: wrap;

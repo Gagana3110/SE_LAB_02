@@ -5,7 +5,7 @@ from app.auth.deps import CurrentUser, DbSession, require_roles
 from app.auth.models import Role, User
 from app.forecasting import service
 from app.forecasting.models import ForecastRun
-from app.forecasting.schemas import ProductChart, RunAccepted, RunCreate, RunOut
+from app.forecasting.schemas import ProductChart, RunAccepted, RunCreate, RunOut, RunSummary
 from app.forecasting.tasks import run_forecast
 
 router = APIRouter(prefix="/api/forecasts")
@@ -42,6 +42,11 @@ def start_run(body: RunCreate, db: DbSession, user: User = Depends(planner_only)
             status.HTTP_503_SERVICE_UNAVAILABLE, "The forecast service is unavailable"
         ) from exc
     return {"run_id": run_id, "status": run_status}
+
+
+@router.get("/runs", response_model=list[RunSummary])
+def list_runs(_: CurrentUser, db: DbSession):
+    return service.recent_runs(db)
 
 
 @router.get("/runs/{run_id}", response_model=RunOut)

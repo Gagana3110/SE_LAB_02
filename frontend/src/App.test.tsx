@@ -91,10 +91,10 @@ describe("login", () => {
 
 describe("menus follow the role", () => {
   it.each([
-    [ADMIN, ["Products", "Raw materials", "Suppliers", "Users"]],
-    [PLANNER, ["Products", "Raw materials", "Import sales"]],
-    [INVENTORY, ["Products", "Raw materials"]],
-    [BUYER, ["Products", "Raw materials", "Suppliers"]],
+    [ADMIN, ["Products", "Raw materials", "Suppliers", "Forecast", "Users"]],
+    [PLANNER, ["Products", "Raw materials", "Import sales", "Forecast"]],
+    [INVENTORY, ["Products", "Raw materials", "Forecast"]],
+    [BUYER, ["Products", "Raw materials", "Suppliers", "Forecast"]],
   ])("for $role", async (user, expected) => {
     fakeServer({ "GET /auth/me": { body: user }, "GET /products": { body: [] } });
     open();
