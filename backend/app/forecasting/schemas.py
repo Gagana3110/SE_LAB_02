@@ -1,6 +1,6 @@
 """Request and response shapes from the SAD (Section 4.3), which uses camelCase for this API."""
 
-from datetime import date
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -63,6 +63,17 @@ class RunOut(_Camel):
     error: str | None
     skipped: list[SkippedProduct]
     products: list[ProductForecast]
+
+
+class RunSummary(_Camel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True,
+                              from_attributes=True)
+
+    run_id: int = Field(validation_alias="id")
+    status: str
+    horizon: int
+    granularity: str
+    created_at: datetime
 
 
 class ActualOut(_Camel):

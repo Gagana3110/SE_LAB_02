@@ -4,6 +4,7 @@ import { Role } from "./api";
 import { AuthProvider, useAuth } from "./auth";
 import { Layout } from "./components/Layout";
 import { BomPage } from "./pages/BomPage";
+import { ForecastPage } from "./pages/ForecastPage";
 import { ImportPage } from "./pages/ImportPage";
 import { ItemsPage } from "./pages/ItemsPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -64,6 +65,7 @@ function AppRoutes() {
             </Allowed>
           }
         />
+        <Route path="forecast" element={<ForecastPage />} />
         <Route
           path="users"
           element={

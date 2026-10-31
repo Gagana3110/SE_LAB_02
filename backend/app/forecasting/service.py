@@ -111,6 +111,10 @@ def execute_run(db: Session, run_id: int) -> None:
     db.commit()
 
 
+def recent_runs(db: Session, limit: int = 20) -> list[ForecastRun]:
+    return list(db.scalars(select(ForecastRun).order_by(ForecastRun.id.desc()).limit(limit)))
+
+
 def run_details(db: Session, run: ForecastRun, product_id: int | None = None) -> dict:
     query = select(ForecastLine, Product.code).join(Product, ForecastLine.product_id == Product.id)
     query = query.where(ForecastLine.run_id == run.id)

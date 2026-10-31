@@ -15,6 +15,7 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/materials", label: "Raw materials" },
   { to: "/suppliers", label: "Suppliers", roles: ["administrator", "procurement_manager"] },
   { to: "/import", label: "Import sales", roles: ["demand_planner"] },
+  { to: "/forecast", label: "Forecast" },
   { to: "/users", label: "Users", roles: ["administrator"] },
 ];
 
