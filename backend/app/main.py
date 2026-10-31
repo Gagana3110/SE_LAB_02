@@ -9,6 +9,8 @@ from app.auth.service import bootstrap_admin
 from app.db import Base, SessionLocal, database_is_up, engine
 from app.errors import register_error_handling
 from app.masterdata.router import router as masterdata_router
+from app.sales.router import router as sales_router
+from app.suppliers.router import router as suppliers_router
 
 
 @asynccontextmanager
@@ -23,6 +25,8 @@ app = FastAPI(title="Demand Forecasting System", version="0.1.0", lifespan=lifes
 register_error_handling(app)
 app.include_router(auth_router)
 app.include_router(masterdata_router)
+app.include_router(sales_router)
+app.include_router(suppliers_router)
 
 
 @app.get("/health")
