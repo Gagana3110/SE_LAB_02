@@ -19,7 +19,7 @@ React + TypeScript, Python FastAPI, PostgreSQL, Redis, Docker Compose, GitHub Ac
 
 ## Run the app
 
-Requires Docker Desktop.
+Requires Docker Desktop. First copy `.env.example` to `.env` and set your own passwords; the first Administrator account is created from `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
 
 ```bash
 docker compose up --build

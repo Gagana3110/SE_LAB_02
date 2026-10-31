@@ -1,8 +1,26 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from app.db import database_is_up
+from app.auth import models as auth_models  # noqa: F401 - registers the tables
+from app.auth.router import router as auth_router
+from app.auth.service import bootstrap_admin
+from app.db import Base, SessionLocal, database_is_up, engine
+from app.errors import register_error_handling
 
-app = FastAPI(title="Demand Forecasting System", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    Base.metadata.create_all(engine)
+    with SessionLocal() as session:
+        bootstrap_admin(session)
+    yield
+
+
+app = FastAPI(title="Demand Forecasting System", version="0.1.0", lifespan=lifespan)
+register_error_handling(app)
+app.include_router(auth_router)
 
 
 @app.get("/health")
