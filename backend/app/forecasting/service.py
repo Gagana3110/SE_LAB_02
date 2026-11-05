@@ -3,11 +3,22 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.forecasting import engine
-from app.forecasting.models import DONE, FAILED, QUEUED, RUNNING, ForecastLine, ForecastRun
-from app.forecasting.schemas import RunCreate
+from app.forecasting.models import (
+    DONE,
+    FAILED,
+    QUEUED,
+    RUNNING,
+    AuditLog,
+    ForecastApproval,
+    ForecastLine,
+    ForecastOverride,
+    ForecastRun,
+)
+from app.forecasting.schemas import ForecastOverrideCreate, RunCreate
 from app.masterdata.models import Product
 from app.sales.models import SalesRecord
 
@@ -138,3 +149,101 @@ def actual_history(db: Session, product_id: int, granularity: str) -> list[dict]
         return []
     series = engine.demand_series(records, granularity)
     return [{"period": period.date(), "actual": float(value)} for period, value in series.items()]
+
+
+# DFS-16: manual forecast overrides, approval locking and audit history.
+
+
+class ForecastNotEditable(Exception):
+    """Raised when a run is not complete or has already been approved."""
+
+
+class ForecastPointNotFound(Exception):
+    pass
+
+
+class ForecastAlreadyApproved(Exception):
+    pass
+
+
+def create_override(
+    db: Session, run_id: int, user_id: int, data: ForecastOverrideCreate
+) -> ForecastOverride:
+    run = db.scalar(select(ForecastRun).where(ForecastRun.id == run_id).with_for_update())
+    if run is None:
+        raise ForecastPointNotFound("Forecast run not found")
+    if run.status != DONE:
+        raise ForecastNotEditable("Only completed forecast runs can be overridden")
+    if db.scalar(select(ForecastApproval.id).where(ForecastApproval.run_id == run_id)):
+        raise ForecastAlreadyApproved("An approved forecast cannot be overridden")
+
+    line = db.scalar(
+        select(ForecastLine).where(
+            ForecastLine.run_id == run_id,
+            ForecastLine.product_id == data.product_id,
+            ForecastLine.period == data.period,
+        ).with_for_update()
+    )
+    if line is None:
+        raise ForecastPointNotFound("Forecast point not found for this run, product and period")
+
+    old_value = float(line.forecast)
+    new_value = float(data.new_forecast)
+    line.forecast = new_value
+    record = ForecastOverride(
+        run_id=run_id,
+        product_id=data.product_id,
+        period=data.period,
+        old_value=old_value,
+        new_value=new_value,
+        reason=data.reason,
+        user_id=user_id,
+    )
+    db.add(record)
+    db.add(AuditLog(
+        user_id=user_id,
+        action="FORECAST_OVERRIDE",
+        run_id=run_id,
+        product_id=data.product_id,
+        period=data.period,
+        old_value=old_value,
+        new_value=new_value,
+        reason=data.reason,
+    ))
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def approve_forecast(db: Session, run_id: int, user_id: int) -> ForecastApproval:
+    run = db.scalar(select(ForecastRun).where(ForecastRun.id == run_id).with_for_update())
+    if run is None:
+        raise ForecastPointNotFound("Forecast run not found")
+    if run.status != DONE:
+        raise ForecastNotEditable("Only completed forecast runs can be approved")
+    if db.scalar(select(ForecastApproval.id).where(ForecastApproval.run_id == run_id)):
+        raise ForecastAlreadyApproved("This forecast run has already been approved")
+
+    approval = ForecastApproval(run_id=run_id, approved_by=user_id)
+    db.add(approval)
+    db.add(AuditLog(
+        user_id=user_id,
+        action="FORECAST_APPROVED",
+        run_id=run_id,
+        old_value=None,
+        new_value=None,
+    ))
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ForecastAlreadyApproved("This forecast run has already been approved") from exc
+    db.refresh(approval)
+    return approval
+
+
+def list_audit_logs(db: Session, limit: int = 100) -> list[AuditLog]:
+    statement = select(AuditLog).order_by(
+        AuditLog.timestamp.desc(), AuditLog.id.desc()
+    ).limit(limit)
+    return list(db.scalars(statement))

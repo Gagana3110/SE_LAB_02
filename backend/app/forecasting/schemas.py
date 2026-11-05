@@ -1,9 +1,9 @@
-"""Request and response shapes from the SAD (Section 4.3), which uses camelCase for this API."""
+"""Request and response shapes from the SAD; API fields use camelCase aliases."""
 
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from app.forecasting.engine import MONTH, WEEK
@@ -66,8 +66,9 @@ class RunOut(_Camel):
 
 
 class RunSummary(_Camel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True,
-                              from_attributes=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+    )
 
     run_id: int = Field(validation_alias="id")
     status: str
@@ -85,3 +86,62 @@ class ProductChart(ProductForecast):
     """Everything the actual-vs-forecast chart needs for one product (DFS-F-012)."""
 
     history: list[ActualOut]
+
+
+class ForecastOverrideCreate(_Camel):
+    product_id: int = Field(gt=0)
+    period: date
+    new_forecast: float = Field(ge=0, allow_inf_nan=False)
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("An override reason is required")
+        return value
+
+
+class ForecastOverrideOut(_Camel):
+    id: int
+    run_id: int
+    product_id: int
+    period: date
+    old_value: float
+    new_value: float
+    reason: str
+    user_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+    )
+
+
+class ForecastApprovalOut(_Camel):
+    id: int
+    run_id: int
+    approved_by: int
+    approved_at: datetime
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+    )
+
+
+class AuditLogOut(_Camel):
+    id: int
+    user_id: int
+    timestamp: datetime
+    action: str
+    run_id: int
+    product_id: int | None
+    period: date | None
+    old_value: float | None
+    new_value: float | None
+    reason: str | None
+
+    model_config = ConfigDict(
+        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+    )

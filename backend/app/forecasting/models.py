@@ -1,6 +1,15 @@
 from datetime import UTC, date, datetime
 
-from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -45,3 +54,54 @@ class ForecastLine(Base):
     upper80: Mapped[float] = mapped_column(Float)
     lower95: Mapped[float] = mapped_column(Float)
     upper95: Mapped[float] = mapped_column(Float)
+
+
+class ForecastOverride(Base):
+    """An immutable record of a planner changing one forecast point."""
+
+    __tablename__ = "forecast_overrides"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("forecast_runs.id"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
+    period: Mapped[date] = mapped_column(Date)
+    old_value: Mapped[float] = mapped_column(Float)
+    new_value: Mapped[float] = mapped_column(Float)
+    reason: Mapped[str] = mapped_column(Text)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class ForecastApproval(Base):
+    """One approval per forecast run; the unique key prevents duplicate approvals."""
+
+    __tablename__ = "forecast_approvals"
+    __table_args__ = (UniqueConstraint("run_id", name="uq_forecast_approval_run"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("forecast_runs.id"), index=True)
+    approved_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    approved_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class AuditLog(Base):
+    """Append-only audit records. The API intentionally exposes no update/delete routes."""
+
+    __tablename__ = "audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    action: Mapped[str] = mapped_column(String(40), index=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("forecast_runs.id"), index=True)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    period: Mapped[date | None] = mapped_column(Date, nullable=True)
+    old_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    new_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -1,14 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from kombu.exceptions import OperationalError as QueueUnavailable
 
 from app.auth.deps import CurrentUser, DbSession, require_roles
 from app.auth.models import Role, User
 from app.forecasting import service
 from app.forecasting.models import ForecastRun
-from app.forecasting.schemas import ProductChart, RunAccepted, RunCreate, RunOut, RunSummary
+from app.forecasting.schemas import (
+    AuditLogOut,
+    ForecastApprovalOut,
+    ForecastOverrideCreate,
+    ForecastOverrideOut,
+    ProductChart,
+    RunAccepted,
+    RunCreate,
+    RunOut,
+    RunSummary,
+)
 from app.forecasting.tasks import run_forecast
 
 router = APIRouter(prefix="/api/forecasts")
+audit_router = APIRouter()
 planner_only = require_roles(Role.DEMAND_PLANNER)
 
 
@@ -59,5 +70,45 @@ def product_chart(run_id: int, product_id: int, _: CurrentUser, db: DbSession):
     run = _get_run(db, run_id)
     products = service.run_details(db, run, product_id)["products"]
     if not products:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "No forecast for this product in this run")
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "No forecast for this product in this run"
+        )
     return {**products[0], "history": service.actual_history(db, product_id, run.granularity)}
+
+
+@router.post("/runs/{run_id}/override", response_model=ForecastOverrideOut)
+def override_forecast(
+    run_id: int,
+    body: ForecastOverrideCreate,
+    db: DbSession,
+    user: User = Depends(planner_only),
+):
+    try:
+        return service.create_override(db, run_id, user.id, body)
+    except service.ForecastPointNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except service.ForecastNotEditable as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except service.ForecastAlreadyApproved as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+
+@router.post("/runs/{run_id}/approve", response_model=ForecastApprovalOut)
+def approve_forecast(run_id: int, db: DbSession, user: User = Depends(planner_only)):
+    try:
+        return service.approve_forecast(db, run_id, user.id)
+    except service.ForecastPointNotFound as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except service.ForecastNotEditable as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except service.ForecastAlreadyApproved as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+
+
+@audit_router.get("/api/audit-log", response_model=list[AuditLogOut])
+def get_audit_log(
+    db: DbSession,
+    _: User = Depends(planner_only),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    return service.list_audit_logs(db, limit)
