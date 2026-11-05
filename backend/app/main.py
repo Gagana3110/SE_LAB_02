@@ -8,7 +8,7 @@ from app.auth.router import router as auth_router
 from app.auth.service import bootstrap_admin
 from app.db import Base, SessionLocal, database_is_up, engine
 from app.errors import register_error_handling
-from app.forecasting.router import router as forecasting_router
+from app.forecasting.router import audit_router, router as forecasting_router
 from app.masterdata.router import router as masterdata_router
 from app.sales.router import router as sales_router
 from app.suppliers.router import router as suppliers_router
@@ -29,6 +29,7 @@ app.include_router(masterdata_router)
 app.include_router(sales_router)
 app.include_router(suppliers_router)
 app.include_router(forecasting_router)
+app.include_router(audit_router)
 
 
 @app.get("/health")
