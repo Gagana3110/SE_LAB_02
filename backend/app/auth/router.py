@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app.auth import service
 from app.auth.deps import SESSION_COOKIE, CurrentUser, DbSession, require_roles, set_session_cookie
 from app.auth.models import Role
-from app.auth.schemas import LoginRequest, UserCreate, UserOut
+from app.auth.schemas import LoginRequest, ResetConfirm, ResetRequest, UserCreate, UserOut
 
 router = APIRouter(prefix="/api")
 admin_only = Depends(require_roles(Role.ADMINISTRATOR))
@@ -43,3 +43,18 @@ def create_user(body: UserCreate, db: DbSession):
         return service.create_user(db, body.email, body.password, body.role)
     except service.EmailAlreadyUsed as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, "This email is already in use") from exc
+
+@router.post("/auth/password-reset/request", status_code=status.HTTP_202_ACCEPTED)
+def request_password_reset(body: ResetRequest, db: DbSession):
+    service.request_password_reset(db, body.email)
+    return {"message": "If that email has an account, a reset link has been sent."}
+
+
+@router.post("/auth/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+def confirm_password_reset(body: ResetConfirm, db: DbSession) -> None:
+    try:
+        service.reset_password(db, body.token, body.new_password)
+    except service.InvalidResetLink as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "This reset link is invalid, expired or already used"
+        ) from exc

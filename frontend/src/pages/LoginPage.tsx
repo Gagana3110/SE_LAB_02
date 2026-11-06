@@ -1,4 +1,6 @@
+
 import { FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { messageOf } from "../api";
 import { useAuth } from "../auth";
 import { ErrorMessage, Field } from "../components/Field";
@@ -14,6 +16,7 @@ export function LoginPage() {
     event.preventDefault();
     setBusy(true);
     setError("");
+
     try {
       await login(email, password);
     } catch (reason) {
@@ -27,7 +30,9 @@ export function LoginPage() {
       <form className="card" onSubmit={submit}>
         <h1>Demand Forecasting System</h1>
         <p className="hint">Log in with your work email.</p>
+
         <ErrorMessage text={error} />
+
         <Field
           label="Email"
           type="email"
@@ -36,6 +41,7 @@ export function LoginPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
+
         <Field
           label="Password"
           type="password"
@@ -44,9 +50,16 @@ export function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+
         <button type="submit" disabled={busy}>
           {busy ? "Logging in..." : "Log in"}
         </button>
+
+        <p className="hint">
+          <Link to="/forgot-password">
+            Forgot your password?
+          </Link>
+        </p>
       </form>
     </main>
   );

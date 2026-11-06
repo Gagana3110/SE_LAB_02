@@ -20,3 +20,11 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     role: Role
+
+class ResetRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetConfirm(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
+    new_password: str = Field(min_length=8, max_length=128)
