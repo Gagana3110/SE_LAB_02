@@ -1,31 +1,51 @@
-"""Request and response shapes from the SAD; API fields use camelCase aliases."""
+
+"""Request and response shapes for forecasting."""
 
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic.alias_generators import to_camel
 
 from app.forecasting.engine import MONTH, WEEK
 
-HORIZON_LIMITS = {MONTH: (1, 12), WEEK: (4, 52)}
+HORIZON_LIMITS = {
+    MONTH: (1, 12),
+    WEEK: (4, 52),
+}
 
 
 class _Camel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+    )
 
 
 class RunCreate(_Camel):
     product_ids: list[int] | Literal["ALL"] = Field(min_length=1)
     horizon: int
     granularity: Literal["MONTH", "WEEK"] = MONTH
-    models: list[Literal["MA", "HW"]] = Field(default=["MA", "HW"], min_length=1)
+    models: list[Literal["MA", "HW", "SARIMAX"]] = Field(
+        default=["MA", "HW", "SARIMAX"],
+        min_length=1,
+    )
 
     @model_validator(mode="after")
     def horizon_fits_granularity(self):
         low, high = HORIZON_LIMITS[self.granularity]
+
         if not low <= self.horizon <= high:
-            raise ValueError(f"Horizon must be {low} to {high} for {self.granularity}")
+            raise ValueError(
+                f"Horizon must be {low} to {high} for {self.granularity}"
+            )
+
         return self
 
 
@@ -35,6 +55,12 @@ class RunAccepted(_Camel):
 
 
 class PointOut(_Camel):
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
+
     period: date
     forecast: float
     lower80: float
@@ -43,11 +69,19 @@ class PointOut(_Camel):
     upper95: float
 
 
+class ForecastMetricsOut(_Camel):
+    mape: float | None
+    mae: float | None
+    bias: float | None
+    confidence: str
+
+
 class ProductForecast(_Camel):
     product_id: int
     code: str
     model: str
     points: list[PointOut]
+    metrics: ForecastMetricsOut | None = None
 
 
 class SkippedProduct(_Camel):
@@ -67,7 +101,9 @@ class RunOut(_Camel):
 
 class RunSummary(_Camel):
     model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
     )
 
     run_id: int = Field(validation_alias="id")
@@ -83,7 +119,7 @@ class ActualOut(_Camel):
 
 
 class ProductChart(ProductForecast):
-    """Everything the actual-vs-forecast chart needs for one product (DFS-F-012)."""
+    """Actual-vs-forecast chart data."""
 
     history: list[ActualOut]
 
@@ -98,8 +134,10 @@ class ForecastOverrideCreate(_Camel):
     @classmethod
     def reason_must_not_be_blank(cls, value: str) -> str:
         value = value.strip()
+
         if not value:
             raise ValueError("An override reason is required")
+
         return value
 
 
@@ -115,7 +153,9 @@ class ForecastOverrideOut(_Camel):
     created_at: datetime
 
     model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
     )
 
 
@@ -126,7 +166,9 @@ class ForecastApprovalOut(_Camel):
     approved_at: datetime
 
     model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
     )
 
 
@@ -143,5 +185,7 @@ class AuditLogOut(_Camel):
     reason: str | None
 
     model_config = ConfigDict(
-        alias_generator=to_camel, populate_by_name=True, from_attributes=True
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
     )

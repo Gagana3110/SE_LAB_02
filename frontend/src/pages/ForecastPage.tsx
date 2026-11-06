@@ -1,3 +1,4 @@
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   Area,
@@ -32,11 +33,19 @@ interface Point {
   upper95: number;
 }
 
+interface ForecastMetrics {
+  mape: number | null;
+  mae: number | null;
+  bias: number | null;
+  confidence: string;
+}
+
 interface ProductForecast {
   productId: number;
   code: string;
   model: string;
   points: Point[];
+  metrics?: ForecastMetrics;
 }
 
 interface RunDetail {
@@ -52,15 +61,31 @@ interface Chart extends ProductForecast {
 }
 
 export const POLL_MS = 2000;
-const MODEL_NAMES: Record<string, string> = { MA: "Moving average", HW: "Holt-Winters" };
-const LIMITS = { MONTH: { min: 1, max: 12 }, WEEK: { min: 4, max: 52 } };
-const isActive = (status?: string) => status === "QUEUED" || status === "RUNNING";
+
+const MODEL_NAMES: Record<string, string> = {
+  MA: "Moving average",
+  HW: "Holt-Winters",
+  SARIMAX: "SARIMAX",
+};
+
+const LIMITS = {
+  MONTH: { min: 1, max: 12 },
+  WEEK: { min: 4, max: 52 },
+};
+
+const isActive = (status?: string) =>
+  status === "QUEUED" || status === "RUNNING";
+
+function formatMetric(value: number | null | undefined) {
+  return value == null ? "—" : value.toFixed(2);
+}
 
 function chartRows(chart: Chart) {
   const rows: Record<string, unknown>[] = chart.history.map((h) => ({
     period: h.period,
     actual: h.actual,
   }));
+
   chart.points.forEach((p) =>
     rows.push({
       period: p.period,
@@ -69,12 +94,14 @@ function chartRows(chart: Chart) {
       range95: [p.lower95, p.upper95],
     }),
   );
+
   return rows;
 }
 
 export function ForecastPage() {
   const { user } = useAuth();
   const canRun = user?.role === "demand_planner";
+
   const loadPage = useCallback(
     () =>
       Promise.all([
@@ -83,12 +110,14 @@ export function ForecastPage() {
       ]),
     [],
   );
+
   const { data, error: loadError, reload } = useLoad(loadPage);
   const products = data?.[0] ?? [];
   const runs = data?.[1] ?? [];
 
   const [productId, setProductId] = useState("ALL");
-  const [granularity, setGranularity] = useState<"MONTH" | "WEEK">("MONTH");
+  const [granularity, setGranularity] =
+    useState<"MONTH" | "WEEK">("MONTH");
   const [horizon, setHorizon] = useState("6");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -99,29 +128,43 @@ export function ForecastPage() {
   const [chart, setChart] = useState<Chart | null>(null);
 
   useEffect(() => {
-    if (runId === null && runs.length > 0) setRunId(runs[0].runId);
+    if (runId === null && runs.length > 0) {
+      setRunId(runs[0].runId);
+    }
   }, [runId, runs]);
 
   useEffect(() => {
     if (runId === null) return;
+
     let stopped = false;
     let timer: ReturnType<typeof setTimeout>;
+
     const check = async () => {
       try {
-        const detail = await api<RunDetail>(`/forecasts/runs/${runId}`);
+        const detail = await api<RunDetail>(
+          `/forecasts/runs/${runId}`,
+        );
+
         if (stopped) return;
+
         setRun(detail);
         setError("");
-        if (isActive(detail.status)) timer = setTimeout(check, POLL_MS);
-        else void reload();
+
+        if (isActive(detail.status)) {
+          timer = setTimeout(check, POLL_MS);
+        } else {
+          void reload();
+        }
       } catch (reason) {
         if (!stopped) setError(messageOf(reason));
       }
     };
+
     setRun(null);
     setShownProduct(null);
     setChart(null);
     void check();
+
     return () => {
       stopped = true;
       clearTimeout(timer);
@@ -131,16 +174,24 @@ export function ForecastPage() {
   const firstProduct = run?.products[0]?.productId ?? null;
   const selected = shownProduct ?? firstProduct;
 
+  const selectedForecast =
+    run?.products.find((product) => product.productId === selected);
+
   useEffect(() => {
     if (runId === null || selected === null) return;
+
     let stopped = false;
-    api<Chart>(`/forecasts/runs/${runId}/products/${selected}`)
+
+    api<Chart>(
+      `/forecasts/runs/${runId}/products/${selected}`,
+    )
       .then((value) => {
         if (!stopped) setChart(value);
       })
       .catch((reason) => {
         if (!stopped) setError(messageOf(reason));
       });
+
     return () => {
       stopped = true;
     };
@@ -150,13 +201,19 @@ export function ForecastPage() {
     event.preventDefault();
     setBusy(true);
     setError("");
+
     try {
       const body = {
         productIds: productId === "ALL" ? "ALL" : [Number(productId)],
         horizon: Number(horizon),
         granularity,
       };
-      const accepted = await api<{ runId: number }>("/forecasts/runs", { method: "POST", body });
+
+      const accepted = await api<{ runId: number }>(
+        "/forecasts/runs",
+        { method: "POST", body },
+      );
+
       setRunId(accepted.runId);
     } catch (reason) {
       setError(messageOf(reason));
@@ -172,21 +229,28 @@ export function ForecastPage() {
 
   const productLabel = (id: number) => {
     const product = products.find((item) => item.id === id);
-    return product ? `${product.code} ${product.name}` : `Product ${id}`;
+    return product
+      ? `${product.code} ${product.name}`
+      : `Product ${id}`;
   };
 
   return (
     <section>
       <h1>Demand forecast</h1>
+
       <ErrorMessage text={loadError || error} />
 
       {canRun && (
         <form className="card form-row" onSubmit={start}>
           <h2>Run a new forecast</h2>
+
           <div className="fields">
             <label className="field">
               <span>Products</span>
-              <select value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <select
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+              >
                 <option value="ALL">All active products</option>
                 {products.map((product) => (
                   <option key={product.id} value={product.id}>
@@ -195,18 +259,28 @@ export function ForecastPage() {
                 ))}
               </select>
             </label>
+
             <label className="field">
               <span>Period</span>
               <select
                 value={granularity}
-                onChange={(e) => changeGranularity(e.target.value as "MONTH" | "WEEK")}
+                onChange={(e) =>
+                  changeGranularity(
+                    e.target.value as "MONTH" | "WEEK",
+                  )
+                }
               >
                 <option value="MONTH">Monthly</option>
                 <option value="WEEK">Weekly</option>
               </select>
             </label>
+
             <Field
-              label={granularity === "MONTH" ? "Months ahead" : "Weeks ahead"}
+              label={
+                granularity === "MONTH"
+                  ? "Months ahead"
+                  : "Weeks ahead"
+              }
               type="number"
               required
               {...LIMITS[granularity]}
@@ -214,9 +288,15 @@ export function ForecastPage() {
               onChange={(e) => setHorizon(e.target.value)}
             />
           </div>
+
           <div className="actions">
-            <button type="submit" disabled={busy || isActive(run?.status)}>
-              {isActive(run?.status) ? "Forecast running..." : "Run forecast"}
+            <button
+              type="submit"
+              disabled={busy || isActive(run?.status)}
+            >
+              {isActive(run?.status)
+                ? "Forecast running..."
+                : "Run forecast"}
             </button>
           </div>
         </form>
@@ -231,8 +311,10 @@ export function ForecastPage() {
           >
             {runs.map((item) => (
               <option key={item.runId} value={item.runId}>
-                #{item.runId}: {new Date(item.createdAt).toLocaleString()} ({item.status},{" "}
-                {item.horizon} {item.granularity === "MONTH" ? "months" : "weeks"})
+                #{item.runId}:{" "}
+                {new Date(item.createdAt).toLocaleString()} (
+                {item.status}, {item.horizon}{" "}
+                {item.granularity === "MONTH" ? "months" : "weeks"})
               </option>
             ))}
           </select>
@@ -245,15 +327,24 @@ export function ForecastPage() {
 
       {isActive(run?.status) && (
         <p className="message info" role="status">
-          The forecast is running in the background. You can keep working; this page updates by
-          itself.
+          The forecast is running in the background. You can keep
+          working; this page updates by itself.
         </p>
       )}
-      {run?.status === "FAILED" && <ErrorMessage text={run.error ?? "The forecast failed."} />}
+
+      {run?.status === "FAILED" && (
+        <ErrorMessage text={run.error ?? "The forecast failed."} />
+      )}
+
       {run && run.skipped.length > 0 && (
         <p className="message warning" role="status">
           Skipped:{" "}
-          {run.skipped.map((s) => `${productLabel(s.productId)} (${s.reason})`).join(", ")}
+          {run.skipped
+            .map(
+              (s) =>
+                `${productLabel(s.productId)} (${s.reason})`,
+            )
+            .join(", ")}
         </p>
       )}
 
@@ -268,7 +359,10 @@ export function ForecastPage() {
             }}
           >
             {run.products.map((product) => (
-              <option key={product.productId} value={product.productId}>
+              <option
+                key={product.productId}
+                value={product.productId}
+              >
                 {productLabel(product.productId)}
               </option>
             ))}
@@ -276,21 +370,77 @@ export function ForecastPage() {
         </label>
       )}
 
+      {selectedForecast?.metrics && (
+        <div className="card">
+          <h2>Forecast evaluation metrics</h2>
+
+          <p>
+            Selected model:{" "}
+            <strong>
+              {MODEL_NAMES[selectedForecast.model] ??
+                selectedForecast.model}
+            </strong>
+          </p>
+
+          <div className="fields">
+            <div className="field">
+              <span>MAPE</span>
+              <strong>
+                {formatMetric(selectedForecast.metrics.mape)}
+                {selectedForecast.metrics.mape == null ? "" : "%"}
+              </strong>
+            </div>
+
+            <div className="field">
+              <span>MAE</span>
+              <strong>
+                {formatMetric(selectedForecast.metrics.mae)}
+              </strong>
+            </div>
+
+            <div className="field">
+              <span>Bias</span>
+              <strong>
+                {formatMetric(selectedForecast.metrics.bias)}
+              </strong>
+            </div>
+
+            <div className="field">
+              <span>Confidence</span>
+              <strong>
+                {selectedForecast.metrics.confidence}
+              </strong>
+            </div>
+          </div>
+        </div>
+      )}
+
       {chart && (
         <>
           <div className="card">
             <h2>
               {productLabel(chart.productId)}{" "}
-              <span className="badge ok">{MODEL_NAMES[chart.model] ?? chart.model}</span>
+              <span className="badge ok">
+                {MODEL_NAMES[chart.model] ?? chart.model}
+              </span>
             </h2>
-            <div className="chart" role="img" aria-label={`Actual and forecast demand for ${chart.code}. The same values are in the table below.`}>
+
+            <div
+              className="chart"
+              role="img"
+              aria-label={`Actual and forecast demand for ${chart.code}. The same values are in the table below.`}
+            >
               <ResponsiveContainer width="100%" height={360}>
                 <ComposedChart data={chartRows(chart)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#d3dae1" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#d3dae1"
+                  />
                   <XAxis dataKey="period" minTickGap={32} />
                   <YAxis />
                   <Tooltip />
                   <Legend />
+
                   <Area
                     dataKey="range95"
                     name="95% range"
@@ -299,6 +449,7 @@ export function ForecastPage() {
                     fillOpacity={0.12}
                     isAnimationActive={false}
                   />
+
                   <Area
                     dataKey="range80"
                     name="80% range"
@@ -307,6 +458,7 @@ export function ForecastPage() {
                     fillOpacity={0.22}
                     isAnimationActive={false}
                   />
+
                   <Line
                     dataKey="actual"
                     name="Actual"
@@ -316,6 +468,7 @@ export function ForecastPage() {
                     connectNulls={false}
                     isAnimationActive={false}
                   />
+
                   <Line
                     dataKey="forecast"
                     name="Forecast"
@@ -329,6 +482,7 @@ export function ForecastPage() {
               </ResponsiveContainer>
             </div>
           </div>
+
           <div className="table-wrap">
             <table>
               <caption>Forecast values for {chart.code}</caption>
@@ -342,6 +496,7 @@ export function ForecastPage() {
                   <th scope="col">95% high</th>
                 </tr>
               </thead>
+
               <tbody>
                 {chart.points.map((point) => (
                   <tr key={point.period}>

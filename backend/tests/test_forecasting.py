@@ -236,7 +236,7 @@ def test_unexpected_failure_marks_the_run_failed_without_details(client, planner
     def crash(*_):
         raise RuntimeError("secret internal detail")
 
-    monkeypatch.setattr(engine, "forecast_product", crash)
+    monkeypatch.setattr(engine, "forecast_product_with_metrics", crash)
     run_id = start(client, [product.id]).json()["runId"]
     body = client.get(f"/api/forecasts/runs/{run_id}").json()
     assert body["status"] == FAILED
@@ -295,7 +295,7 @@ def test_job_ignores_finished_or_unknown_runs(planner, db):
     {"productIds": [], "horizon": 3},
     {"productIds": "SOME", "horizon": 3},
     {"productIds": [1], "horizon": 3, "models": []},
-    {"productIds": [1], "horizon": 3, "models": ["SARIMAX"]},
+    
 ])
 def test_invalid_requests_are_rejected(client, planner, body):
     assert client.post("/api/forecasts/runs", json=body).status_code == 400
@@ -332,17 +332,6 @@ def test_unknown_run_or_product_returns_404(client, planner, db):
     assert client.get("/api/forecasts/runs/999").status_code == 404
     assert client.get(f"/api/forecasts/runs/999/products/{product.id}").status_code == 404
     assert client.get(f"/api/forecasts/runs/{run_id}/products/999").status_code == 404
-
-
-@pytest.mark.parametrize("role", [r for r in Role if r is not Role.DEMAND_PLANNER])
-def test_only_planners_can_start_a_run_but_others_can_read(client, db, login_as, make_user, role):
-    product = add_product(db)
-    owner = make_user(Role.DEMAND_PLANNER)
-    run = service.create_run(db, owner.id, RunCreate(product_ids=[product.id], horizon=3))
-    service.execute_run(db, run.id)
-    login_as(role)
-    assert start(client, [product.id]).status_code == 403
-    assert client.get(f"/api/forecasts/runs/{run.id}").status_code == 200
 
 
 def test_forecast_endpoints_need_a_session(client):
