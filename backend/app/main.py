@@ -10,6 +10,7 @@ from app.db import Base, SessionLocal, database_is_up, engine
 from app.errors import register_error_handling
 from app.forecasting.router import audit_router, router as forecasting_router
 from app.inventory.router import router as inventory_router
+from app.procurement import models as procurement_models  # noqa: F401 - registers procurement tables
 from app.masterdata.router import router as masterdata_router
 from app.sales.router import router as sales_router
 from app.suppliers.router import router as suppliers_router
