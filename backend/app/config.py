@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     smtp_from: str = "no-reply@dfs-demo.com"
     app_base_url: str = "http://localhost:8080"
     reset_minutes: int = 30
+    login_rate_per_minute: int = 10
+    api_rate_per_minute: int = 100
+    trust_proxy_headers: bool = False
 
     def model_post_init(self, __context) -> None:
         # Without a configured secret, sessions simply end when the app restarts.

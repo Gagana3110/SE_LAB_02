@@ -9,6 +9,7 @@ from app.auth.service import bootstrap_admin
 from app.db import Base, SessionLocal, database_is_up, engine
 from app.errors import register_error_handling
 from app.forecasting.router import audit_router, router as forecasting_router
+from app.hardening import register_hardening
 from app.inventory.router import router as inventory_router
 from app.procurement import models as procurement_models  # noqa: F401 - registers procurement tables
 from app.masterdata.router import router as masterdata_router
@@ -25,6 +26,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Demand Forecasting System", version="0.1.0", lifespan=lifespan)
+# Registered first so that it runs inside the request-ID middleware and can reuse that ID.
+register_hardening(app)
 register_error_handling(app)
 app.include_router(auth_router)
 app.include_router(masterdata_router)

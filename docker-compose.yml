@@ -34,6 +34,9 @@ services:
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       APP_BASE_URL: http://localhost:8080
+      # Users reach the API through nginx, so rate limits use the address nginx forwards.
+      # In production, do not publish port 8000, so that header cannot be faked directly.
+      TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
     depends_on:
       db:
         condition: service_healthy

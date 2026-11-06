@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.auth.models import Role  # noqa: E402
 from app.auth.service import create_user  # noqa: E402
 from app.db import Base, SessionLocal, engine  # noqa: E402
+from app.hardening import limiter  # noqa: E402
 from app.main import app  # noqa: E402
 
 PASSWORD = "correct-horse-battery"
@@ -20,6 +21,14 @@ def fresh_database():
     Base.metadata.create_all(engine)
     yield
     Base.metadata.drop_all(engine)
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits():
+    # Every test client shares one address, so limits must not carry over between tests.
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 @pytest.fixture
