@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     admin_email: str = ""
     admin_password: str = ""
+    smtp_host: str = ""
+    smtp_port: int = 1025
+    smtp_from: str = "no-reply@dfs-demo.com"
+    app_base_url: str = "http://localhost:8080"
+    reset_minutes: int = 30
 
     def model_post_init(self, __context) -> None:
         # Without a configured secret, sessions simply end when the app restarts.

@@ -12,6 +12,8 @@ import { MaterialSuppliersPage } from "./pages/MaterialSuppliersPage";
 import { SuppliersPage } from "./pages/SuppliersPage";
 import { UsersPage } from "./pages/UsersPage";
 import "./styles.css";
+import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 
 const BUYERS: Role[] = ["administrator", "procurement_manager"];
 
@@ -32,7 +34,15 @@ function Allowed({ roles, children }: { roles: Role[]; children: ReactNode }) {
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return <p className="loading">Loading...</p>;
-  if (!user) return <LoginPage />;
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
+        <Route path="*" element={<LoginPage />} />
+      </Routes>
+    );
+  }
 
   return (
     <Routes>
