@@ -295,7 +295,7 @@ def test_job_ignores_finished_or_unknown_runs(planner, db):
     {"productIds": [], "horizon": 3},
     {"productIds": "SOME", "horizon": 3},
     {"productIds": [1], "horizon": 3, "models": []},
-    {"productIds": [1], "horizon": 3, "models": ["SARIMAX"]},
+    
 ])
 def test_invalid_requests_are_rejected(client, planner, body):
     assert client.post("/api/forecasts/runs", json=body).status_code == 400
@@ -332,22 +332,6 @@ def test_unknown_run_or_product_returns_404(client, planner, db):
     assert client.get("/api/forecasts/runs/999").status_code == 404
     assert client.get(f"/api/forecasts/runs/999/products/{product.id}").status_code == 404
     assert client.get(f"/api/forecasts/runs/{run_id}/products/999").status_code == 404
-
-
-
-@pytest.mark.parametrize("body", [
-    {"productIds": [1], "horizon": 0},
-    {"productIds": [1], "horizon": 13},
-    {"productIds": [1], "horizon": 3, "granularity": "WEEK"},
-    {"productIds": [1], "horizon": 53, "granularity": "WEEK"},
-    {"productIds": [1], "horizon": 3, "granularity": "DAY"},
-    {"productIds": [], "horizon": 3},
-    {"productIds": "SOME", "horizon": 3},
-    {"productIds": [1], "horizon": 3, "models": []},
-])
-def test_invalid_requests_are_rejected(client, planner, body):
-    assert client.post("/api/forecasts/runs", json=body).status_code == 400
-
 
 
 def test_forecast_endpoints_need_a_session(client):
