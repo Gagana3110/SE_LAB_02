@@ -1,3 +1,4 @@
+
 from datetime import UTC, date, datetime
 
 from sqlalchemy import (
@@ -29,7 +30,9 @@ class ForecastRun(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     horizon: Mapped[int]
     granularity: Mapped[str] = mapped_column(String(5))
     allowed_models: Mapped[list] = mapped_column(JSON)
@@ -54,6 +57,32 @@ class ForecastLine(Base):
     upper80: Mapped[float] = mapped_column(Float)
     lower95: Mapped[float] = mapped_column(Float)
     upper95: Mapped[float] = mapped_column(Float)
+
+
+class ForecastMetric(Base):
+    """Back-testing evaluation metrics for one product in one forecast run."""
+
+    __tablename__ = "forecast_metrics"
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "product_id",
+            name="uq_forecast_metric_run_product",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int] = mapped_column(
+        ForeignKey("forecast_runs.id"), index=True
+    )
+    product_id: Mapped[int] = mapped_column(
+        ForeignKey("products.id"), index=True
+    )
+    model: Mapped[str] = mapped_column(String(10))
+    mape: Mapped[float | None] = mapped_column(Float, nullable=True)
+    mae: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bias: Mapped[float | None] = mapped_column(Float, nullable=True)
+    confidence: Mapped[str] = mapped_column(String(30))
 
 
 class ForecastOverride(Base):
@@ -89,7 +118,7 @@ class ForecastApproval(Base):
 
 
 class AuditLog(Base):
-    """Append-only audit records. The API intentionally exposes no update/delete routes."""
+    """Append-only audit records."""
 
     __tablename__ = "audit_logs"
 
@@ -100,7 +129,9 @@ class AuditLog(Base):
     )
     action: Mapped[str] = mapped_column(String(40), index=True)
     run_id: Mapped[int] = mapped_column(ForeignKey("forecast_runs.id"), index=True)
-    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    product_id: Mapped[int | None] = mapped_column(
+        ForeignKey("products.id"), nullable=True
+    )
     period: Mapped[date | None] = mapped_column(Date, nullable=True)
     old_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     new_value: Mapped[float | None] = mapped_column(Float, nullable=True)
