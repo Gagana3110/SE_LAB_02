@@ -16,6 +16,12 @@ services:
   redis:
     image: redis:7-alpine
 
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"
+
   backend:
     build: ./backend
     environment:
@@ -25,6 +31,9 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      APP_BASE_URL: http://localhost:8080
       # Users reach the API through nginx, so rate limits use the address nginx forwards.
       # In production, do not publish port 8000, so that header cannot be faked directly.
       TRUST_PROXY_HEADERS: ${TRUST_PROXY_HEADERS:-true}
@@ -35,7 +44,7 @@ services:
         condition: service_started
     ports:
       - "8000:8000"
-
+    
   worker:
     build: ./backend
     command: celery -A app.forecasting.tasks worker --loglevel=info --concurrency=2
@@ -56,6 +65,6 @@ services:
       - backend
     ports:
       - "8080:80"
-
+   
 volumes:
   db_data:

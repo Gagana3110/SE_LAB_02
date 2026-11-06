@@ -5,10 +5,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import security
-from app.auth.models import Role, User
+from app.auth.models import PasswordResetToken, Role, User
 from app.config import settings
 
+import hashlib
+import logging
+import secrets
+
+from app.notifications.email import send_email
+
 MAX_FAILED_LOGINS = 5
+log = logging.getLogger(__name__)
 LOCK_MINUTES = 15
 
 
@@ -73,3 +80,47 @@ def bootstrap_admin(db: Session) -> None:
         return
     if db.scalar(select(User.id).where(User.role == Role.ADMINISTRATOR).limit(1)) is None:
         create_user(db, settings.admin_email, settings.admin_password, Role.ADMINISTRATOR)
+
+class InvalidResetLink(Exception):
+    pass
+
+
+def _hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def _aware(moment: datetime) -> datetime:
+    return moment if moment.tzinfo else moment.replace(tzinfo=UTC)  # SQLite drops the timezone
+
+
+def request_password_reset(db: Session, email: str) -> None:
+    """Emails a single-use link. Unknown emails do nothing, so nobody can probe for accounts."""
+    user = db.scalar(select(User).where(User.email == email.lower()))
+    if user is None:
+        return
+    token = secrets.token_urlsafe(32)
+    expires = datetime.now(UTC) + timedelta(minutes=settings.reset_minutes)
+    db.add(PasswordResetToken(user_id=user.id, token_hash=_hash_token(token), expires_at=expires))
+    db.commit()
+    link = f"{settings.app_base_url}/reset-password?token={token}"
+    body = (f"Use this link to choose a new password. It works once and expires in "
+            f"{settings.reset_minutes} minutes:\n\n{link}\n")
+    try:
+        send_email(user.email, "Reset your DFS password", body)
+    except OSError:
+        log.exception("Could not send the password reset email")
+
+
+def reset_password(db: Session, token: str, new_password: str) -> None:
+    record = db.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.token_hash == _hash_token(token))
+    )
+    now = datetime.now(UTC)
+    if record is None or record.used_at is not None or _aware(record.expires_at) <= now:
+        raise InvalidResetLink
+    user = db.get(User, record.user_id)
+    user.password_hash = security.hash_password(new_password)
+    user.failed_logins = 0
+    user.locked_until = None
+    record.used_at = now
+    db.commit()
