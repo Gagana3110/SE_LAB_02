@@ -15,6 +15,7 @@ from app.procurement import models as procurement_models  # noqa: F401 - registe
 from app.masterdata.router import router as masterdata_router
 from app.sales.router import router as sales_router
 from app.suppliers.router import router as suppliers_router
+from app.reporting.router import router as reporting_router
 
 
 @asynccontextmanager
@@ -43,3 +44,4 @@ app.include_router(audit_router)
 def health() -> dict[str, str]:
     """Used by the uptime monitor (DFS-NF-004) and the web UI."""
     return {"status": "ok", "database": "up" if database_is_up() else "down"}
+app.include_router(reporting_router)
