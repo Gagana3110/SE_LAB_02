@@ -15,4 +15,6 @@ statsmodels==0.14.4
 celery==5.4.0
 redis==6.1.0
 reportlab>=4.0
+# statsmodels 0.14.4 breaks with SciPy 1.17+ (SARIMAX fit fails), so SciPy is pinned.
+scipy==1.14.1
 reportlab
