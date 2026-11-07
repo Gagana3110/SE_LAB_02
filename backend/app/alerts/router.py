@@ -1,6 +1,5 @@
 
 from fastapi import APIRouter, Depends
-
 from sqlalchemy import select
 
 from app.alerts import service
@@ -11,18 +10,24 @@ from app.auth.models import Role, User
 
 router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
 
-alert_readers = require_roles(
-    Role.ADMINISTRATOR,
-    Role.INVENTORY_MANAGER,
-    Role.DEMAND_PLANNER,
-    Role.PROCUREMENT_MANAGER,
+alert_readers = Depends(
+    require_roles(
+        Role.ADMINISTRATOR,
+        Role.INVENTORY_MANAGER,
+        Role.DEMAND_PLANNER,
+        Role.PROCUREMENT_MANAGER,
+    )
+)
+
+alert_evaluators = Depends(
+    require_roles(Role.ADMINISTRATOR, Role.INVENTORY_MANAGER)
 )
 
 
 @router.get("", response_model=list[AlertOut])
 def get_alerts(
     db: DbSession,
-    _: User = Depends(alert_readers),
+    _: User = alert_readers,
     open_only: bool = True,
 ):
     query = select(Alert)
@@ -40,9 +45,7 @@ def get_alerts(
 @router.post("/evaluate")
 def evaluate_alerts(
     db: DbSession,
-    _: User = Depends(
-        require_roles(Role.ADMINISTRATOR, Role.INVENTORY_MANAGER)
-    ),
+    _: User = alert_evaluators,
 ):
     count = service.evaluate_all_alerts(db)
     return {"created_alerts": count}

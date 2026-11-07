@@ -1,7 +1,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -30,7 +30,6 @@ class Alert(Base):
 
     is_open: Mapped[bool] = mapped_column(default=True, index=True)
 
-    # A non-null key identifies an active alert. It becomes NULL on resolution.
     active_key: Mapped[str | None] = mapped_column(
         String(150), unique=True, nullable=True
     )

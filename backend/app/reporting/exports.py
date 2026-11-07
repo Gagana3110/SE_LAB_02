@@ -16,7 +16,7 @@ def export_csv(headers, rows):
 def export_pdf(title, headers, rows):
     output = io.BytesIO()
     pdf = canvas.Canvas(output, pagesize=A4)
-    width, height = A4
+    _width, height = A4
 
     pdf.setTitle(title)
     pdf.setFont("Helvetica-Bold", 16)
