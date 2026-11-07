@@ -1,7 +1,10 @@
+
+import logging
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.alerts.service import evaluate_all_alerts
 from app.auth.deps import CurrentUser, DbSession, require_roles
 from app.auth.models import Role
 from app.inventory import service
@@ -13,6 +16,8 @@ from app.inventory.schemas import (
     StockMovementCreate,
     StockMovementOut,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 stock_writers = Depends(require_roles(Role.ADMINISTRATOR, Role.INVENTORY_MANAGER))
@@ -27,13 +32,20 @@ indicator_writers = Depends(require_roles(Role.ADMINISTRATOR, Role.DEMAND_PLANNE
 )
 def post_movement(body: StockMovementCreate, db: DbSession):
     try:
-        return service.create_movement(db, body)
+        movement = service.create_movement(db, body)
     except service.UnknownItem as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Active item not found") from exc
     except service.InsufficientStock as exc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "Movement would make on-hand stock negative"
         ) from exc
+
+    try:
+        evaluate_all_alerts(db)
+    except Exception:
+        logger.exception("Alert evaluation failed after stock movement %s", movement.id)
+
+    return movement
 
 
 @router.get("/inventory/movements", response_model=list[StockMovementOut])
