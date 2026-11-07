@@ -1,21 +1,25 @@
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.auth import models as auth_models  # noqa: F401 - registers the tables
+from app.alerts import models as alert_models  # noqa: F401
+from app.alerts.router import router as alerts_router
+from app.auth import models as auth_models  # noqa: F401
 from app.auth.router import router as auth_router
 from app.auth.service import bootstrap_admin
 from app.db import Base, SessionLocal, database_is_up, engine
 from app.errors import register_error_handling
-from app.forecasting.router import audit_router, router as forecasting_router
+from app.forecasting.router import audit_router
+from app.forecasting.router import router as forecasting_router
 from app.hardening import register_hardening
 from app.inventory.router import router as inventory_router
-from app.procurement import models as procurement_models  # noqa: F401 - registers procurement tables
 from app.masterdata.router import router as masterdata_router
+from app.procurement import models as procurement_models  # noqa: F401
+from app.reporting.router import router as reporting_router
 from app.sales.router import router as sales_router
 from app.suppliers.router import router as suppliers_router
-from app.reporting.router import router as reporting_router
 
 
 @asynccontextmanager
@@ -27,9 +31,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="Demand Forecasting System", version="0.1.0", lifespan=lifespan)
-# Registered first so that it runs inside the request-ID middleware and can reuse that ID.
+
 register_hardening(app)
 register_error_handling(app)
+
 app.include_router(auth_router)
 app.include_router(masterdata_router)
 app.include_router(sales_router)
@@ -37,11 +42,11 @@ app.include_router(suppliers_router)
 app.include_router(forecasting_router)
 app.include_router(inventory_router)
 app.include_router(audit_router)
+app.include_router(reporting_router)
+app.include_router(alerts_router)
 
 
 @app.get("/health")
 @app.get("/api/health")
 def health() -> dict[str, str]:
-    """Used by the uptime monitor (DFS-NF-004) and the web UI."""
     return {"status": "ok", "database": "up" if database_is_up() else "down"}
-app.include_router(reporting_router)

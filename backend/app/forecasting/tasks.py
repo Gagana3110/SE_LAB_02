@@ -1,11 +1,16 @@
-"""Background jobs, so that long forecast runs never block web requests (SAD ADR-3)."""
+
+import logging
 
 from celery import Celery
 
-from app.auth import models as auth_models  # noqa: F401 - registers the tables for the worker
+from app.alerts import models as alert_models  # noqa: F401
+from app.alerts.service import evaluate_all_alerts
+from app.auth import models as auth_models  # noqa: F401
 from app.config import settings
 from app.db import SessionLocal
 from app.forecasting import service
+
+logger = logging.getLogger(__name__)
 
 JOB_TIME_LIMIT_SECONDS = 20 * 60
 
@@ -23,3 +28,10 @@ celery_app.conf.update(
 def run_forecast(run_id: int) -> None:
     with SessionLocal() as db:
         service.execute_run(db, run_id)
+
+        try:
+            evaluate_all_alerts(db)
+        except Exception:
+            logger.exception(
+                "Alert evaluation failed after forecast run %s", run_id
+            )
