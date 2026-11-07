@@ -352,3 +352,33 @@ def test_recent_runs_are_listed_newest_first(client, planner, db):
 
 def test_listing_runs_needs_a_session(client):
     assert client.get("/api/forecasts/runs").status_code == 401
+
+
+# TC-Fc-02: back-testing and best-model selection, including SARIMAX
+
+
+def test_sarimax_backtest_gives_metrics():
+    """SARIMAX must really run. A failure here used to be swallowed, and runs fell back silently."""
+    series = engine.demand_series(seasonal_demand(36), engine.MONTH)
+    result = engine.backtest_model(series, "SARIMAX", engine.MONTH)
+    assert result is not None
+    assert result.model == "SARIMAX"
+    assert result.mape is not None and math.isfinite(result.mape)
+    assert len(result.predictions) == engine.BACKTEST_PERIODS
+    assert all(value >= 0 for value in result.predictions)
+
+
+def test_sarimax_only_run_uses_sarimax():
+    model, points, metrics = engine.forecast_product_with_metrics(
+        seasonal_demand(36), 6, engine.MONTH, ["SARIMAX"])
+    assert model == "SARIMAX"
+    assert len(points) == 6
+    assert metrics.mape is not None
+
+
+def test_every_model_is_backtested_and_the_lowest_mape_wins():
+    series = engine.demand_series(seasonal_demand(36), engine.MONTH)
+    results = engine.backtest_models(series, engine.MONTH, ["MA", "HW", "SARIMAX"])
+    assert sorted(r.model for r in results) == ["HW", "MA", "SARIMAX"]
+    best = engine.select_best_model(results)
+    assert best.mape == min(r.mape for r in results)
