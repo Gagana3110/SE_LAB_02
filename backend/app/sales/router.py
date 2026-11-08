@@ -11,7 +11,7 @@ from app.sales import parser, service
 from app.sales.models import ImportRun
 
 router = APIRouter(prefix="/api")
-planner_only = require_roles(Role.DEMAND_PLANNER)
+planner_only = require_roles(Role.ADMINISTRATOR, Role.DEMAND_PLANNER)
 
 
 class RowError(BaseModel):
